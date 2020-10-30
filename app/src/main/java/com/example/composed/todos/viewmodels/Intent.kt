@@ -10,4 +10,8 @@ sealed class Intent {
     data class UpdateTodoIntent(
         val todo: TodoItem,
     ) : Intent()
+
+    data class DeleteTodoIntent(
+        val todo: TodoItem,
+    ) : Intent()
 }

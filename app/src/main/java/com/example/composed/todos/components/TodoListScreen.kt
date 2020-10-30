@@ -35,6 +35,7 @@ fun TodoListScreen(
             todos = items,
             onTodoCheckChanged = viewModel::onTodoChecked,
             onTodoEditingFinished = viewModel::onTodoEditFinished,
+            onTodoSwiped = viewModel::onTodoSwiped,
         )
     }
 }

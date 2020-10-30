@@ -1,11 +1,14 @@
 package com.example.composed.todos.components
 
+import androidx.compose.foundation.Icon
 import androidx.compose.foundation.Text
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Checkbox
 import androidx.compose.material.OutlinedTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -22,28 +25,53 @@ import com.example.composed.todos.models.newTodo
 @Preview(showBackground = true)
 @Composable
 fun Todo(
-    todo: TodoItem = newTodo("Buy bread"),
+    todo: TodoItem = newTodo("Buy bread").copy(editing = false),
     onCheckedChange: (Boolean) -> Unit = {},
     onEditingFinished: (String) -> Unit = {},
+    onDeleteClicked: () -> Unit = {},
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    ConstraintLayout(
         modifier = Modifier.fillMaxWidth()
-            .padding(8.dp),
     ) {
-        Checkbox(checked = todo.done, onCheckedChange = onCheckedChange)
+        val (checkbox, title, icon) = createRefs()
 
-        Spacer(modifier = Modifier.preferredWidth(8.dp))
+        val titleModifier = Modifier.constrainAs(title) {
+            top.linkTo(parent.top)
+            bottom.linkTo(parent.bottom)
+            start.linkTo(checkbox.end)
+            end.linkTo(icon.start)
+            width = Dimension.fillToConstraints
+        }.padding(8.dp)
 
         if (todo.editing)
-            EditTodo(todo, onEditingFinished = onEditingFinished)
+            EditTodo(todo, titleModifier, onEditingFinished)
         else
-            TodoText(todo = todo)
+            TodoText(todo, titleModifier)
+
+        Checkbox(
+            checked = todo.done,
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier.constrainAs(checkbox) {
+                top.linkTo(title.top)
+                bottom.linkTo(title.bottom)
+                start.linkTo(parent.start)
+            }
+        )
+
+        Icon(
+            asset = Icons.Filled.Close,
+            modifier = Modifier.clickable(onClick = onDeleteClicked)
+                .constrainAs(icon) {
+                    top.linkTo(title.top)
+                    bottom.linkTo(title.bottom)
+                    end.linkTo(parent.end)
+                }
+        )
     }
 }
 
 @Composable
-private fun TodoText(todo: TodoItem) {
+private fun TodoText(todo: TodoItem, modifier: Modifier) {
     Text(
         text = todo.title,
         style = if (todo.done)
@@ -57,12 +85,13 @@ private fun TodoText(todo: TodoItem) {
                 textDecoration = TextDecoration.None,
                 color = Color.Black,
                 fontSize = 18.sp,
-            )
+            ),
+        modifier = modifier,
     )
 }
 
 @Composable
-private fun EditTodo(todo: TodoItem, onEditingFinished: (String) -> Unit) {
+private fun EditTodo(todo: TodoItem, modifier: Modifier, onEditingFinished: (String) -> Unit) {
     var textFieldValue by remember { mutableStateOf(TextFieldValue(todo.title)) }
 
     OutlinedTextField(
@@ -81,5 +110,32 @@ private fun EditTodo(todo: TodoItem, onEditingFinished: (String) -> Unit) {
         onValueChange = {
             textFieldValue = it
         },
+        modifier = modifier,
     )
 }
+
+private fun constraintSet(): ConstraintSet =
+    ConstraintSet {
+        val checkbox = createRefFor("checkbox")
+        val title = createRefFor("title")
+        val deleteIcon = createRefFor("deleteIcon")
+
+        createHorizontalChain(checkbox, title, deleteIcon, chainStyle = ChainStyle.Spread)
+
+        constrain(checkbox) {
+            top.linkTo(title.top)
+            bottom.linkTo(title.bottom)
+            start.linkTo(parent.start)
+        }
+        constrain(title) {
+            top.linkTo(parent.top)
+            bottom.linkTo(parent.bottom)
+            start.linkTo(checkbox.end)
+            end.linkTo(deleteIcon.start)
+        }
+        constrain(deleteIcon) {
+            top.linkTo(title.top)
+            bottom.linkTo(title.bottom)
+            end.linkTo(parent.end)
+        }
+    }

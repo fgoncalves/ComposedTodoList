@@ -7,20 +7,21 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.launch
 
 abstract class TodoListScreenViewModel : ViewModel() {
     @ExperimentalCoroutinesApi
-    abstract val state: StateFlow<List<TodoItem>>
+    abstract val state: MutableStateFlow<List<TodoItem>>
 
     abstract fun onAddTodoClicked()
 
     abstract fun onTodoEditFinished(todo: TodoItem, newText: String)
 
     abstract fun onTodoChecked(todo: TodoItem, checked: Boolean)
+
+    abstract fun onTodoSwiped(todo: TodoItem)
 }
 
 typealias State = List<TodoItem>
@@ -39,14 +40,6 @@ class TodoListScreenViewModelImpl : TodoListScreenViewModel() {
     }
 
     private val intents = Channel<Intent>()
-    private val mutableState = MutableStateFlow(
-        listOf(
-            newTodo("Buy bread").copy(editing = false),
-            newTodo("Buy beef").copy(editing = false),
-            newTodo("Buy coffee").copy(editing = false),
-            newTodo("Buy other things").copy(editing = false),
-        ).sortedWith(TodoItemComparator)
-    )
 
     init {
         GlobalScope.launch {
@@ -54,7 +47,14 @@ class TodoListScreenViewModelImpl : TodoListScreenViewModel() {
         }
     }
 
-    override val state: StateFlow<State> = mutableState
+    override val state: MutableStateFlow<State> = MutableStateFlow(
+        listOf(
+            newTodo("Buy bread").copy(editing = false),
+            newTodo("Buy beef").copy(editing = false),
+            newTodo("Buy coffee").copy(editing = false),
+            newTodo("Buy other things").copy(editing = false),
+        ).sortedWith(TodoItemComparator)
+    )
 
     override fun onAddTodoClicked() {
         intents.offer(Intent.AddTodoIntent(newTodo("")))
@@ -75,12 +75,16 @@ class TodoListScreenViewModelImpl : TodoListScreenViewModel() {
         intents.offer(Intent.UpdateTodoIntent(todo.copy(done = checked)))
     }
 
+    override fun onTodoSwiped(todo: TodoItem) {
+        intents.offer(Intent.DeleteTodoIntent(todo))
+    }
+
     private suspend fun handleIntents() {
-        intents.consumeAsFlow().collect { mutableState.value = handleIntent(it) }
+        intents.consumeAsFlow().collect { state.value = handleIntent(it) }
     }
 
     private fun handleIntent(intent: Intent): State {
-        val newTodos = mutableState.value.toMutableList()
+        val newTodos = state.value.toMutableList()
 
         when (intent) {
             is Intent.AddTodoIntent ->
@@ -90,6 +94,9 @@ class TodoListScreenViewModelImpl : TodoListScreenViewModel() {
                 val index = newTodos.indexOfFirst { it.id == intent.todo.id }
                 newTodos[index] = intent.todo
             }
+
+            is Intent.DeleteTodoIntent ->
+                newTodos.removeIf { it.id == intent.todo.id }
         }
 
         return newTodos.sortedWith(TodoItemComparator)
